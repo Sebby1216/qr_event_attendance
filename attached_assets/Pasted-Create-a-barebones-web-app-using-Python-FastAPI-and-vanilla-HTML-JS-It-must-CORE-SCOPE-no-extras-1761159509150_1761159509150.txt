@@ -1,0 +1,77 @@
+Create a barebones web app using Python FastAPI and vanilla HTML/JS. It must:
+
+CORE SCOPE (no extras):
+- No authentication, no CSS frameworks, no design styling beyond basic HTML.
+- Use SQLite (via SQLAlchemy or sqlite3) for storage.
+- Single event (no event management). Just record check-ins.
+- Minimal file structure.
+
+FEATURES:
+1) Student roster + QR generation:
+   - Provide a simple HTML form to add students (First Name, Middle Initial, Last Name, Program, Year, Section).
+   - Provide an endpoint to bulk-generate QR PNGs for all students (and a simple page listing downloadable QR images).
+   - Each QR code must encode a SINGLE TEXT STRING in this exact structure:
+     "<FirstName> <MiddleName or Middle Initial with period> <LastName> <Program> <Year><Section>"
+     Example: "Sebastian Maurice L. Tadeo BSIT 3A"
+   - When generating QR codes, use exactly that plain-text format (no JSON, no extra separators).
+
+2) QR scanning + check-in:
+   - A single HTML page (“/scan”) that opens the device camera using getUserMedia.
+   - Use a lightweight in-page QR decoder (e.g., include jsQR locally) with vanilla JS (no frameworks).
+   - On successful scan, POST the raw scanned text to a FastAPI endpoint (e.g., POST /checkin).
+   - The backend must parse ONLY the above string format and extract:
+       FirstName, Middle (can be one or more tokens, may include an initial with a period), LastName,
+       Program (uppercase letters), Year (1 digit), Section (single uppercase letter).
+     Parsing rules/regex (strict):
+       - Program: [A-Z]{2,10}
+       - Year: [1-9] (store as int)
+       - Section: [A-Z]
+       - The last two tokens are "<Program> <Year><Section>"
+       - The remaining leading tokens compose the full name, where the last token of that group is LastName,
+         the first token is FirstName, and everything between is the Middle part (may include an initial with a dot).
+     Example input: "Sebastian Maurice L. Tadeo BSIT 3A"
+       -> FirstName="Sebastian", Middle="Maurice L.", LastName="Tadeo", Program="BSIT", Year=3, Section="A"
+     If parsing fails or the program/year/section don’t match the pattern, return 400.
+
+   - On valid scan:
+       - Upsert the student if not already in the database (keyed by tuple: FirstName, Middle, LastName, Program, Year, Section).
+       - Record an attendance row with timestamp (unique per student per day/session).
+       - Return JSON {status:"ok"}.
+   - Deduplicate: if the same student scans again, return JSON {status:"duplicate"} and do not create a new record.
+
+3) Live list view:
+   - A simple HTML page (“/live”) that displays the current attendance in real time, grouped and nested:
+       Year → Program → Section → list of students (LastName, FirstName, Middle, check-in time).
+   - Provide a very simple polling (every 2–3 seconds) or Server-Sent Events to refresh.
+   - Also show total counts per Year/Program/Section.
+   - No styling required—just headers and lists.
+
+DATA MODEL (SQLite):
+- students(id PK, first_name, middle, last_name, program, year INT, section CHAR(1), UNIQUE(first_name, middle, last_name, program, year, section))
+- attendance(id PK, student_id FK, checkin_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(student_id, date(checkin_time)))
+  (Use date(checkin_time) or a single-session flag for deduplication; simplest is daily uniqueness.)
+
+ENDPOINTS (suggested):
+- GET /           -> landing with links to /scan, /live, /generate-qr, /add-student
+- GET /add-student -> simple form to add one student
+- POST /students   -> create student
+- GET /generate-qr -> page listing students with <img> QR (PNG) and a “download all” link (optional zip generation)
+- GET /qr/<student_id>.png -> returns a PNG QR that encodes the exact required string format
+- GET /scan        -> camera page with inline jsQR and canvas for decoding
+- POST /checkin    -> body: { text: "<scanned string>" } ; parses, upserts, and records attendance
+- GET /live        -> live list HTML
+- GET /api/attendance -> returns JSON grouped by Year → Program → Section for the live page to poll
+  (or implement /events stream via SSE)
+
+TECH NOTES:
+- Use FastAPI + Uvicorn.
+- Use a lightweight QR library for generation server-side (e.g., qrcode in Python).
+- Bundle jsQR locally in /static/js (no CDN).
+- Keep templates as plain HTML with minimal inline JS; no CSS frameworks.
+- Keep everything in one small project folder.
+
+ACCEPTANCE:
+- I can add a student and generate a QR PNG whose contents match the required text structure.
+- Scanning that QR via /scan produces a valid check-in, and the student appears under Year → Program → Section on /live.
+- Scanning the same QR again returns duplicate and does not add another record.
+- Works with the exact example string: "Sebastian Maurice L. Tadeo BSIT 3A".
