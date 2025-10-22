@@ -8,6 +8,7 @@ import qrcode
 from io import BytesIO
 import re
 from pydantic import BaseModel
+from typing import cast
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -26,20 +27,23 @@ class CheckinRequest(BaseModel):
 def parse_qr_text(text: str):
     parts = text.strip().split()
     
-    if len(parts) < 3:
+    if len(parts) < 4:
         return None
     
     last_part = parts[-1]
-    match = re.match(r'^([A-Z]{2,10})([1-9])([A-Z])$', last_part)
+    second_last_part = parts[-2]
     
-    if not match:
+    match_year_section = re.match(r'^([1-9])([A-Z])$', last_part)
+    match_program = re.match(r'^[A-Z]{2,10}$', second_last_part)
+    
+    if not match_year_section or not match_program:
         return None
     
-    program = match.group(1)
-    year = int(match.group(2))
-    section = match.group(3)
+    program = second_last_part
+    year = int(match_year_section.group(1))
+    section = match_year_section.group(2)
     
-    name_parts = parts[:-1]
+    name_parts = parts[:-2]
     
     if len(name_parts) < 2:
         return None
@@ -58,7 +62,8 @@ def parse_qr_text(text: str):
     }
 
 def generate_qr_text(student: Student):
-    middle_part = f" {student.middle}" if student.middle else ""
+    middle_val = str(student.middle) if student.middle else ""
+    middle_part = f" {middle_val}" if middle_val.strip() else ""
     return f"{student.first_name}{middle_part} {student.last_name} {student.program} {student.year}{student.section}"
 
 @app.get("/", response_class=HTMLResponse)
