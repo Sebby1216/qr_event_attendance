@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}{{ event.name }} — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ event.name }}</h1>
+    <p>{{ event.event_date }}{% if event.venue %} · {{ event.venue }}{% endif %}{% if event.organizer %} · {{ event.organizer }}{% endif %}</p>
+  </div>
+  <span class="status-pill status-{{ event.status }}">{{ event.status|title }}</span>
+</div>
+
+<div class="grid grid-4" style="margin-bottom:24px">
+  <div class="card kpi"><span class="label">Checked in</span><span class="value">{{ checked_in }}</span></div>
+  <div class="card kpi"><span class="label">Checked out</span><span class="value">{{ checked_out }}</span></div>
+  <div class="card kpi"><span class="label">Inside now</span><span class="value">{{ inside }}</span></div>
+  <div class="card kpi"><span class="label">Status</span><span class="value" style="font-size:1.2rem">{{ event.status|title }}</span></div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>Event controls</h2></div>
+  <div class="actions">
+    <form method="post" action="/events/{{ event.id }}/status">
+      <input type="hidden" name="status" value="open">
+      <button class="btn btn-primary" type="submit" {{ 'disabled' if event.status == 'open' }}>Open for scanning</button>
+    </form>
+    <form method="post" action="/events/{{ event.id }}/status">
+      <input type="hidden" name="status" value="draft">
+      <button class="btn" type="submit" {{ 'disabled' if event.status == 'draft' }}>Back to draft</button>
+    </form>
+    <form method="post" action="/events/{{ event.id }}/status">
+      <input type="hidden" name="status" value="closed">
+      <button class="btn btn-danger" type="submit" onclick="confirmAction('Close this event? Scanning will be disabled.', this.form.submit.bind(this.form))" {{ 'disabled' if event.status == 'closed' }}>Close event</button>
+    </form>
+    <form method="post" action="/events/{{ event.id }}/select">
+      <button class="btn" type="submit">Make active</button>
+    </form>
+    <a class="btn" href="/scan">Go to scanner</a>
+    <a class="btn" href="/live">Live attendance</a>
+  </div>
+</div>
+{% endblock %}

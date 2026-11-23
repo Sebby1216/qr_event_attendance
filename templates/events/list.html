@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Events — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Events</h1><p>Create an event, then open it before scanning.</p></div>
+</div>
+
+<div class="grid grid-events">
+  <div class="card">
+    <h2>All events</h2>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Event</th><th>Date</th><th>Status</th><th>Records</th><th></th></tr></thead>
+        <tbody>
+        {% for event in events %}
+          <tr>
+            <td><a href="/events/{{ event.id }}">{{ event.name }}</a>{% if active_event and active_event.id == event.id %} <span class="status-pill status-info">Active</span>{% endif %}</td>
+            <td>{{ event.event_date }}</td>
+            <td><span class="status-pill status-{{ event.status }}">{{ event.status|title }}</span></td>
+            <td>{{ event.attendance_records|length }}</td>
+            <td>
+              <form method="post" action="/events/{{ event.id }}/select">
+                <button class="btn btn-sm" type="submit">Set active</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="empty-state">No events yet. Create one to start scanning.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>New event</h2>
+    <form method="post" action="/events" class="form-grid">
+      <div class="field"><label for="name">Event name</label><input id="name" name="name" required></div>
+      <div class="field"><label for="event_date">Date</label><input id="event_date" name="event_date" type="date" required></div>
+      <div class="field"><label for="venue">Venue <span class="optional">(optional)</span></label><input id="venue" name="venue"></div>
+      <div class="field"><label for="organizer">Organizer <span class="optional">(optional)</span></label><input id="organizer" name="organizer"></div>
+      <div class="form-section">
+        <h3>Windows <span class="optional">(optional)</span></h3>
+        <div class="field"><label for="checkin_open">Check-in opens</label><input id="checkin_open" name="checkin_open" type="datetime-local"></div>
+        <div class="field" style="margin-top:12px"><label for="checkin_close">Check-in closes</label><input id="checkin_close" name="checkin_close" type="datetime-local"></div>
+        <div class="field" style="margin-top:12px"><label for="checkout_open">Check-out opens</label><input id="checkout_open" name="checkout_open" type="datetime-local"></div>
+        <div class="field" style="margin-top:12px"><label for="checkout_close">Check-out closes</label><input id="checkout_close" name="checkout_close" type="datetime-local"></div>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">{{ icon('plus') }} Create event</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

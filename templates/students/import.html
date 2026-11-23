@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Import CSV — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Import students</h1><p>Preview and validate every row before anything is saved.</p></div>
+  <a class="btn" href="/students/import/template">{{ icon('download') }} Download template</a>
+</div>
+
+<div class="card">
+  <h2>Required columns</h2>
+  <p class="form-note" style="margin-bottom:16px"><code>student_id, first_name, middle, last_name, program, year, section</code>. Middle is optional; all other columns are required.</p>
+  <form method="post" action="/students/import/preview" enctype="multipart/form-data" class="form-grid" style="max-width:520px">
+    <div class="field"><label for="file">CSV file</label><input id="file" name="file" type="file" accept=".csv,text/csv" required></div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">{{ icon('upload') }} Preview import</button></div>
+  </form>
+</div>
+{% endblock %}

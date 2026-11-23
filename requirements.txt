@@ -5,3 +5,4 @@ python-multipart
 qrcode
 pillow
 aiosqlite
+jinja2

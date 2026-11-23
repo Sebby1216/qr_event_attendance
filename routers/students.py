@@ -1,265 +1,230 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from database import get_db, Student
-from schemas import StudentCreate
-from routers.auth import require_admin
 import csv
+import io
+import json
+
+from fastapi import APIRouter, Depends, File, Form, Request
+from fastapi.responses import RedirectResponse, StreamingResponse
+from sqlalchemy import or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from database import ImportBatch, Student, User, get_db
+from deps import require_staff
+from schemas import StudentCreate
+from templating import render
+from utils import write_audit
 
 router = APIRouter()
 
-@router.get("/add-student", response_class=HTMLResponse)
-async def add_student_form(admin=Depends(require_admin)):
-    html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Add Student</title>
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
-            body {
-                background: linear-gradient(135deg, #1a0033 0%, #2d004d 100%);
-                color: #ffd700;
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                min-height: 100vh;
-                padding: 20px;
-            }
-            .container {
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 40px;
-            }
-            h1 {
-                text-align: center;
-                font-size: 2.5em;
-                margin-bottom: 40px;
-                text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-                color: #ffd700;
-            }
-            form {
-                background: rgba(45, 0, 77, 0.6);
-                border: 3px solid #ffd700;
-                border-radius: 15px;
-                padding: 30px;
-            }
-            .form-group {
-                margin-bottom: 20px;
-            }
-            label {
-                display: block;
-                margin-bottom: 8px;
-                font-weight: bold;
-                color: #ffd700;
-            }
-            input {
-                width: 100%;
-                padding: 12px;
-                background: rgba(26, 0, 51, 0.8);
-                border: 2px solid #ffd700;
-                border-radius: 8px;
-                color: #ffd700;
-                font-size: 1em;
-                transition: all 0.3s ease;
-            }
-            input:focus {
-                outline: none;
-                border-color: #fff;
-                box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
-            }
-            input::placeholder {
-                color: rgba(255, 215, 0, 0.5);
-            }
-            button {
-                width: 100%;
-                padding: 15px;
-                background: #ffd700;
-                color: #1a0033;
-                border: none;
-                border-radius: 8px;
-                font-size: 1.2em;
-                font-weight: bold;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                margin-top: 10px;
-            }
-            button:hover {
-                background: #fff;
-                transform: translateY(-2px);
-                box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
-            }
-            #message {
-                margin-top: 20px;
-                padding: 15px;
-                border-radius: 8px;
-                text-align: center;
-                font-weight: bold;
-            }
-            #message.success {
-                background: rgba(0, 255, 0, 0.2);
-                border: 2px solid #00ff00;
-                color: #00ff00;
-            }
-            #message.error {
-                background: rgba(255, 0, 0, 0.2);
-                border: 2px solid #ff0000;
-                color: #ff0000;
-            }
-            .back-link {
-                display: inline-block;
-                margin-top: 30px;
-                padding: 12px 30px;
-                background: rgba(45, 0, 77, 0.6);
-                border: 2px solid #ffd700;
-                border-radius: 8px;
-                color: #ffd700;
-                text-decoration: none;
-                font-weight: bold;
-                transition: all 0.3s ease;
-            }
-            .back-link:hover {
-                background: rgba(45, 0, 77, 0.9);
-                transform: translateY(-2px);
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>➕ Add Student</h1>
-            <form id="studentForm">
-                <div class="form-group">
-                    <label>First Name</label>
-                    <input type="text" name="first_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Middle Initial/Name</label>
-                    <input type="text" name="middle">
-                </div>
-                <div class="form-group">
-                    <label>Last Name</label>
-                    <input type="text" name="last_name" required>
-                </div>
-                <div class="form-group">
-                    <label>Program</label>
-                    <input type="text" name="program" required placeholder="e.g., BSIT">
-                </div>
-                <div class="form-group">
-                    <label>Year</label>
-                    <input type="number" name="year" min="1" max="9" required>
-                </div>
-                <div class="form-group">
-                    <label>Section</label>
-                    <input type="text" name="section" maxlength="1" required placeholder="A">
-                </div>
-                <button type="submit">Add Student</button>
-            </form>
-            <div id="message"></div>
-            <center><a href="/" class="back-link">🏠 Back to Home</a></center>
-        </div>
-        
-        <script>
-        document.getElementById('studentForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = {
-                first_name: formData.get('first_name'),
-                middle: formData.get('middle') || '',
-                last_name: formData.get('last_name'),
-                program: formData.get('program').toUpperCase(),
-                year: parseInt(formData.get('year')),
-                section: formData.get('section').toUpperCase()
-            };
-            
-            const response = await fetch('/students', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            const msgDiv = document.getElementById('message');
-            if (response.ok) {
-                msgDiv.className = 'success';
-                msgDiv.textContent = '✓ Student added successfully!';
-                e.target.reset();
-            } else {
-                msgDiv.className = 'error';
-                msgDiv.textContent = '✗ Error: ' + result.detail;
-            }
-        });
-        </script>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html)
+CSV_FIELDS = ["student_id", "first_name", "middle", "last_name", "program", "year", "section"]
+
+
+def normalize_student_data(data: dict):
+    return {
+        "student_id": str(data.get("student_id", "")).strip(),
+        "first_name": str(data.get("first_name", "")).strip(),
+        "middle": str(data.get("middle", "") or "").strip(),
+        "last_name": str(data.get("last_name", "")).strip(),
+        "program": str(data.get("program", "")).strip().upper(),
+        "year": int(data.get("year", 0)),
+        "section": str(data.get("section", "")).strip().upper(),
+    }
+
+
+def validate_row(data: dict, known_ids: set[str], known_identities: set[tuple]):
+    errors = []
+    if not data["student_id"]:
+        errors.append("student_id is required")
+    elif data["student_id"] in known_ids:
+        errors.append("duplicate student_id")
+    if not data["first_name"]:
+        errors.append("first_name is required")
+    if not data["last_name"]:
+        errors.append("last_name is required")
+    if not data["program"]:
+        errors.append("program is required")
+    if not 1 <= data["year"] <= 9:
+        errors.append("year must be 1-9")
+    if len(data["section"]) != 1 or not data["section"].isalpha():
+        errors.append("section must be one letter")
+    identity = (
+        data["first_name"], data["middle"], data["last_name"],
+        data["program"], data["year"], data["section"],
+    )
+    if identity in known_identities:
+        errors.append("duplicate student identity")
+    return errors
+
+
+@router.get("/students")
+async def students_page(
+    request: Request,
+    search: str = "",
+    user: User = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Student)
+    if search:
+        pattern = f"%{search}%"
+        query = query.filter(
+            or_(
+                Student.student_id.ilike(pattern),
+                Student.first_name.ilike(pattern),
+                Student.last_name.ilike(pattern),
+                Student.program.ilike(pattern),
+            )
+        )
+    result = await db.execute(query.order_by(Student.program, Student.year, Student.section, Student.last_name))
+    return render(
+        request,
+        "students/list.html",
+        {"active_page": "students", "students": result.scalars().all(), "search": search},
+    )
+
+
+@router.get("/students/add")
+async def add_student_page(request: Request, user: User = Depends(require_staff)):
+    return render(request, "students/add.html", {"active_page": "students"})
+
 
 @router.post("/students")
-async def create_student(student: StudentCreate, db: AsyncSession = Depends(get_db), admin=Depends(require_admin)):
-    result = await db.execute(select(Student).filter(
-        Student.first_name == student.first_name,
-        Student.middle == student.middle,
-        Student.last_name == student.last_name,
-        Student.program == student.program,
-        Student.year == student.year,
-        Student.section == student.section
-    ))
-    existing = result.scalar_one_or_none()
-    
-    if existing:
-        raise HTTPException(status_code=400, detail="Student already exists")
-    
-    db_student = Student(**student.dict())
-    db.add(db_student)
-    await db.commit()
-    await db.refresh(db_student)
-    return {"id": db_student.id, "message": "Student created"}
+async def create_student(request: Request, user: User = Depends(require_staff), db: AsyncSession = Depends(get_db)):
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        payload = await request.json()
+    else:
+        payload = dict(await request.form())
 
-@router.post("/upload-csv")
-async def upload_csv(file: UploadFile = File(...), db: AsyncSession = Depends(get_db), admin=Depends(require_admin)):
-    contents = await file.read()
-    csv_data = contents.decode('utf-8').splitlines()
-    reader = csv.DictReader(csv_data)
-    
-    students_created = 0
-    students_already_exist = 0
-    
-    for row in reader:
-        student_data = {
-            'first_name': row['first_name'],
-            'middle': row.get('middle', ''),
-            'last_name': row['last_name'],
-            'program': row['program'],
-            'year': int(row['year']),
-            'section': row['section']
-        }
-        
-        # Check if student already exists
-        result = await db.execute(select(Student).filter(
-            Student.first_name == student_data['first_name'],
-            Student.middle == student_data['middle'],
-            Student.last_name == student_data['last_name'],
-            Student.program == student_data['program'],
-            Student.year == student_data['year'],
-            Student.section == student_data['section']
-        ))
-        existing_student = result.scalar_one_or_none()
-        
-        if not existing_student:
-            student = Student(**student_data)
-            db.add(student)
-            students_created += 1
-        else:
-            students_already_exist += 1
-    
+    try:
+        data = normalize_student_data(payload)
+        validated = StudentCreate(**data)
+    except Exception:
+        return RedirectResponse(url="/students/add?msg=Invalid%20student%20data&type=error", status_code=303)
+
+    duplicate_id = await db.execute(select(Student).filter(Student.student_id == validated.student_id))
+    if duplicate_id.scalar_one_or_none():
+        return RedirectResponse(url="/students/add?msg=Student%20ID%20already%20exists&type=error", status_code=303)
+
+    student = Student(**validated.model_dump())
+    db.add(student)
+    await db.flush()
+    await write_audit(db, user.id, "create", "student", student.id, {"student_id": student.student_id})
     await db.commit()
-    
-    return {
-        "status": "ok",
-        "message": f"Added {students_created} new students. {students_already_exist} already existed.",
-        "students_created": students_created,
-        "students_skipped": students_already_exist
+    return RedirectResponse(
+        url=f"/qr?msg=Student%20{student.student_id}%20added&type=success",
+        status_code=303,
+    )
+
+
+@router.get("/students/import")
+async def import_page(request: Request, user: User = Depends(require_staff)):
+    return render(request, "students/import.html", {"active_page": "import"})
+
+
+@router.get("/students/import/template")
+async def import_template(user: User = Depends(require_staff)):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(CSV_FIELDS)
+    writer.writerow(["MA22-00123", "Juan", "S.", "Dela Cruz", "BSIT", 3, "A"])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=students_template.csv"},
+    )
+
+
+@router.post("/students/import/preview")
+async def import_preview(
+    request: Request,
+    file=File(...),
+    user: User = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    contents = (await file.read()).decode("utf-8-sig", errors="replace")
+    reader = csv.DictReader(io.StringIO(contents))
+    if reader.fieldnames is None or "student_id" not in [name.strip().lower() for name in reader.fieldnames]:
+        return RedirectResponse(url="/students/import?msg=CSV%20must%20include%20student_id&type=error", status_code=303)
+
+    result = await db.execute(select(Student))
+    existing = result.scalars().all()
+    known_ids = {student.student_id for student in existing}
+    known_identities = {
+        (s.first_name, s.middle, s.last_name, s.program, s.year, s.section) for s in existing
     }
+
+    rows = []
+    for raw in reader:
+        cleaned = {str(k).strip().lower(): v for k, v in raw.items() if k}
+        try:
+            data = normalize_student_data(cleaned)
+            errors = validate_row(data, known_ids, known_identities)
+            data["errors"] = errors
+            if not errors:
+                known_ids.add(data["student_id"])
+                known_identities.add(
+                    (data["first_name"], data["middle"], data["last_name"], data["program"], data["year"], data["section"])
+                )
+        except Exception as exc:
+            data = {"errors": [f"Invalid row: {exc}"]}
+        rows.append(data)
+
+    batch = ImportBatch(
+        filename=file.filename or "students.csv",
+        rows=json.dumps(rows),
+        errors=json.dumps([row for row in rows if row.get("errors")]),
+        status="preview",
+    )
+    db.add(batch)
+    await db.flush()
+    await db.commit()
+
+    return render(
+        request,
+        "students/import_preview.html",
+        {
+            "active_page": "import",
+            "batch": batch,
+            "rows": rows,
+            "valid_count": sum(1 for row in rows if not row.get("errors")),
+            "error_count": sum(1 for row in rows if row.get("errors")),
+        },
+    )
+
+
+@router.post("/students/import/confirm")
+async def import_confirm(
+    batch_id: int = Form(...),
+    user: User = Depends(require_staff),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(ImportBatch).filter(ImportBatch.id == batch_id))
+    batch = result.scalar_one_or_none()
+    if not batch or batch.status != "preview":
+        return RedirectResponse(url="/students/import?msg=Import%20batch%20not%20found&type=error", status_code=303)
+
+    rows = json.loads(batch.rows)
+    created = skipped = 0
+    errors = []
+    for row in rows:
+        if row.get("errors"):
+            skipped += 1
+            errors.append({"row": row, "errors": row["errors"]})
+            continue
+        duplicate = await db.execute(select(Student).filter(Student.student_id == row["student_id"]))
+        if duplicate.scalar_one_or_none():
+            skipped += 1
+            errors.append({"row": row, "errors": ["student_id already exists"]})
+            continue
+        db.add(Student(**{field: row[field] for field in CSV_FIELDS}))
+        created += 1
+
+    batch.status = "imported"
+    batch.errors = json.dumps(errors)
+    await write_audit(db, user.id, "import", "student", batch_id, {"created": created, "skipped": skipped})
+    await db.commit()
+
+    return RedirectResponse(
+        url=f"/students?msg=Imported%20{created}%20students%2C%20skipped%20{skipped}&type=success",
+        status_code=303,
+    )

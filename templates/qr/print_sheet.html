@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QR print sheet</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body style="background:#fff;color:#000">
+  <div class="no-print" style="padding:16px;text-align:center">
+    <button class="btn btn-primary" onclick="window.print()">Print sheet</button>
+    <a class="btn" href="/qr">Back to QR codes</a>
+  </div>
+  <div class="print-sheet" style="padding:16px">
+    {% for student in students %}
+    <div class="print-card">
+      <img src="/qr/{{ student.id }}.png" alt="QR for {{ student.student_id }}">
+      <div style="font-weight:700">{{ student.student_id }}</div>
+      <div>{{ student.last_name }}, {{ student.first_name }}</div>
+      <div>{{ student.program }} {{ student.year }}-{{ student.section }}</div>
+    </div>
+    {% else %}
+    <p>No students selected.</p>
+    {% endfor %}
+  </div>
+</body>
+</html>

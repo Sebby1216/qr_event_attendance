@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Accounts — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Accounts</h1><p>Manage who can scan, manage events, and administer the system.</p></div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Create account</h2>
+    <form method="post" action="/accounts" class="form-grid">
+      <div class="field">
+        <label for="student_id">Student ID</label>
+        <input id="student_id" name="student_id" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" minlength="8" required>
+        <span class="form-note">Use at least 8 characters.</span>
+      </div>
+      <div class="field">
+        <label for="role">Role</label>
+        <select id="role" name="role">
+          <option value="scanner">Scanner — scan only</option>
+          <option value="event_staff">Event staff — manage events and attendance</option>
+          <option value="admin">Administrator — full access</option>
+        </select>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">{{ icon('plus') }} Create account</button></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Existing accounts</h2>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Student ID</th><th>Role</th><th>Last login</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        {% for account in accounts %}
+          <tr>
+            <td>{{ account.student_id }}</td>
+            <td>{{ account.role|replace('_', ' ')|title }}</td>
+            <td>{{ account.last_login.strftime('%Y-%m-%d %H:%M') if account.last_login else '—' }}</td>
+            <td><span class="status-pill {{ 'status-error' if account.disabled else 'status-success' }}">{{ 'Disabled' if account.disabled else 'Active' }}</span></td>
+            <td>
+              <form method="post" action="/accounts/{{ account.id }}/toggle">
+                <button class="btn btn-sm" type="submit">{{ 'Enable' if account.disabled else 'Disable' }}</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="empty-state">No accounts yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

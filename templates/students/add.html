@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Add student — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Add student</h1><p>Identity details are used for matching QR scans and attendance records.</p></div>
+</div>
+
+<div class="card" style="max-width:720px">
+  <form method="post" action="/students" class="form-grid">
+    <div class="form-section">
+      <h3>Identity</h3>
+      <div class="grid grid-2">
+        <div class="field"><label for="student_id">Student ID <span class="optional">(required)</span></label><input id="student_id" name="student_id" placeholder="MA22-00123" required></div>
+        <div class="field"><label for="first_name">First name</label><input id="first_name" name="first_name" required></div>
+        <div class="field"><label for="middle">Middle name / initial <span class="optional">(optional)</span></label><input id="middle" name="middle"></div>
+        <div class="field"><label for="last_name">Last name</label><input id="last_name" name="last_name" required></div>
+      </div>
+    </div>
+    <div class="form-section" style="border-bottom:0">
+      <h3>Academic details</h3>
+      <div class="grid grid-3">
+        <div class="field"><label for="program">Program</label><input id="program" name="program" placeholder="BSIT" required></div>
+        <div class="field"><label for="year">Year</label><select id="year" name="year">{% for year in [1,2,3,4,5] %}<option value="{{ year }}">{{ year }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="section">Section</label><select id="section" name="section">{% for section in ['A','B','C','D','E'] %}<option value="{{ section }}">{{ section }}</option>{% endfor %}</select></div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">{{ icon('plus') }} Save student</button>
+      <a class="btn" href="/students">Cancel</a>
+    </div>
+  </form>
+  <p class="form-note" style="margin-top:16px">A QR code is generated automatically and available on the QR codes page.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Dashboard — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Dashboard</h1><p>What's happening at the event right now.</p></div>
+  <a class="btn btn-primary btn-lg" href="/scan">{{ icon('scan') }} Start scanning</a>
+</div>
+
+{% if active_event %}
+<div class="event-banner">
+  <div>
+    <h2>{{ active_event.name }} <span class="status-pill status-{{ active_event.status }}">{{ active_event.status|title }}</span></h2>
+    <div class="event-meta">
+      <span>{{ icon('calendar', 16) }} {{ active_event.event_date }}</span>
+      {% if active_event.venue %}<span>{{ icon('pin', 16) }} {{ active_event.venue }}</span>{% endif %}
+      {% if active_event.checkin_open %}<span>{{ icon('clock', 16) }} In {{ active_event.checkin_open.strftime('%H:%M') }}{% if active_event.checkin_close %}–{{ active_event.checkin_close.strftime('%H:%M') }}{% endif %}</span>{% endif %}
+    </div>
+  </div>
+  <div class="actions">
+    {% if active_event.status == 'open' %}
+      <a class="btn btn-primary btn-lg" href="/scan">{{ icon('scan') }} Scan check-in</a>
+    {% else %}
+      <a class="btn btn-lg" href="/events/{{ active_event.id }}">Open event to scan</a>
+    {% endif %}
+    <a class="btn" href="/live">{{ icon('chart') }} Live attendance</a>
+  </div>
+</div>
+{% else %}
+<div class="notice notice-warning">No event is active. <a href="/events">Create or select an event</a> before scanning.</div>
+{% endif %}
+
+<div class="grid grid-4" style="margin-bottom:24px">
+  <div class="card kpi"><span class="label">Checked in</span><span class="value">{{ checked_in }}</span><span class="hint">for this event</span></div>
+  <div class="card kpi"><span class="label">Checked out</span><span class="value">{{ checked_out }}</span></div>
+  <div class="card kpi"><span class="label">Inside now</span><span class="value" style="color:var(--success)">{{ inside }}</span><span class="hint">on site</span></div>
+  <div class="card kpi"><span class="label">Not yet arrived</span><span class="value">{{ not_arrived }}</span><span class="hint">of enrolled students</span></div>
+</div>
+
+<div class="grid grid-events">
+  <div class="card">
+    <div class="card-head"><h2>Recent scans</h2><a href="/live">View all →</a></div>
+    <ul class="activity-feed">
+      {% for record in records %}
+      <li>
+        <span class="status-pill {{ 'status-success' if not record.checkout_time else 'status-info' }}">{{ 'In' if not record.checkout_time else 'Out' }}</span>
+        <span class="who">{{ record.student.last_name }}, {{ record.student.first_name }} <span class="meta">{{ record.student.program }} {{ record.student.year }}-{{ record.student.section }}</span></span>
+        <span class="meta">{{ record.checkin_time.strftime('%H:%M:%S') }}</span>
+      </li>
+      {% else %}
+      <li class="empty-state">No scans yet. Start scanning to see attendance activity here.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Quick actions</h2>
+    <div class="actions" style="margin-bottom:20px">
+      <a class="btn" href="/scan">{{ icon('scan') }} Check in</a>
+      <a class="btn" href="/scan">{{ icon('scan') }} Check out</a>
+      <a class="btn" href="/live">{{ icon('chart') }} View live</a>
+    </div>
+    <h2 style="margin-top:8px">Management</h2>
+    <div class="actions">
+      <a class="btn" href="/students">{{ icon('users') }} Students</a>
+      <a class="btn" href="/students/import">{{ icon('upload') }} Import CSV</a>
+      <a class="btn" href="/qr">{{ icon('qr') }} QR codes</a>
+      {% if current_user.role in ['admin', 'event_staff'] %}
+      <a class="btn" href="/events">{{ icon('calendar') }} Events</a>
+      <a class="btn" href="/export">{{ icon('download') }} Export</a>
+      {% endif %}
+    </div>
+    {% if events|length > 0 %}
+    <h2 style="margin-top:24px">Switch event</h2>
+    <div class="toolbar">
+      <form method="post" action="/events/{{ events[0].id }}/select">
+        <select name="event_id" onchange="this.form.action='/events/' + this.value + '/select'; this.form.submit()">
+          {% for event in events %}<option value="{{ event.id }}" {{ 'selected' if active_event and active_event.id == event.id }}>{{ event.name }} ({{ event.status }})</option>{% endfor %}
+        </select>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

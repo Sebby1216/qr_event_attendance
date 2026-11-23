@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Scanner — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Scanner</h1>
+    <p>{{ active_event.name if active_event else 'No active event' }} · point a student QR inside the frame.</p>
+  </div>
+  <a class="btn" href="/live">{{ icon('chart') }} Live attendance</a>
+</div>
+
+{% if not active_event or active_event.status != 'open' %}
+<div class="notice notice-warning">Scanning is paused. <a href="/events">Open an event</a> before checking students in or out.</div>
+{% endif %}
+
+<div class="segmented" role="tablist">
+  <button type="button" class="active" data-mode="in" role="tab">Check in</button>
+  <button type="button" data-mode="out" role="tab">Check out</button>
+</div>
+
+<div class="scanner-layout">
+  <div>
+    <div class="scanner-stage">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas" hidden></canvas>
+      <div class="scan-frame"></div>
+      <div class="scanner-status"><span id="camera-status" class="status-pill status-warning">{{ icon('camera', 14) }} Starting camera</span></div>
+    </div>
+    <p class="form-note" style="margin-top:12px">Camera access is required for QR scanning. If it is unavailable, use the manual fallback on the right.</p>
+    <details class="technical" id="technical-details" hidden>
+      <summary>Show details</summary>
+      <pre id="technical-text"></pre>
+    </details>
+  </div>
+
+  <div>
+    <div class="scan-result" id="scan-result">
+      <h3>Ready to scan</h3>
+      <p class="meta">The result of the last scan appears here.</p>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h2>Manual fallback</h2>
+      <form id="manual-form" class="form-grid">
+        <div class="field">
+          <label for="student-id">Student ID</label>
+          <input id="student-id" name="student_id" placeholder="e.g. MA22-02598" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="station-id">Station ID <span class="optional">(optional)</span></label>
+          <input id="station-id" name="station_id" placeholder="Door 1">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Record {{ 'check-in' }}</button>
+        </div>
+      </form>
+      <div class="field" style="margin-top:16px">
+        <label for="qr-image">Or upload a QR image</label>
+        <input id="qr-image" name="qr_image" type="file" accept="image/*">
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h2>Recent scans</h2>
+      <ul class="scan-history" id="scan-history">
+        <li class="empty-state">No scans in this session yet.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/jsQR.js"></script>
+<script src="/static/js/scanner.js"></script>
+{% endblock %}

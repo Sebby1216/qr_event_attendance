@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Export — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Export attendance</h1><p>Filter, preview the row count, then download a clean CSV.</p></div>
+</div>
+
+<div class="grid grid-events">
+  <div class="card">
+    <h2>Report filters</h2>
+    <form id="export-form" class="form-grid" method="get" action="/download-csv">
+      <div class="field">
+        <label for="event_id">Event</label>
+        <select id="event_id" name="event_id">
+          <option value="0">All events</option>
+          {% for event in events %}<option value="{{ event.id }}" {{ 'selected' if active_event and active_event.id == event.id }}>{{ event.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-2">
+        <div class="field"><label for="date_from">From <span class="optional">(optional)</span></label><input id="date_from" name="date_from" type="datetime-local"></div>
+        <div class="field"><label for="date_to">To <span class="optional">(optional)</span></label><input id="date_to" name="date_to" type="datetime-local"></div>
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status"><option value="">All statuses</option><option value="inside">Inside</option><option value="out">Checked out</option></select>
+      </div>
+      <div class="form-section" style="border-bottom:0">
+        <h3>Columns to include</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          {% for column in columns %}
+          <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" name="columns" value="{{ column }}" checked> {{ column|replace('_',' ')|title }}</label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="notice notice-info" id="preview-count">Calculating rows…</div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit" id="download-btn">{{ icon('download') }} Download CSV</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Export history</h2>
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>When</th><th>Event</th><th>Rows</th><th>By</th></tr></thead>
+        <tbody>
+        {% for entry in history %}
+          <tr><td>{{ entry.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ entry.event.name if entry.event else 'All' }}</td><td>{{ entry.row_count }}</td><td>{{ 'Admin' if entry.actor_id else '—' }}</td></tr>
+        {% else %}
+          <tr><td colspan="4" class="empty-state">No exports yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('export-form');
+  const preview = document.getElementById('preview-count');
+  const downloadBtn = document.getElementById('download-btn');
+
+  function params() {
+    return new URLSearchParams(new FormData(form)).toString();
+  }
+
+  async function updatePreview() {
+    const response = await fetch('/api/export/preview?' + params());
+    const data = await response.json();
+    preview.textContent = data.rows + ' row' + (data.rows === 1 ? '' : 's') + ' match these filters.';
+    downloadBtn.disabled = data.rows === 0;
+  }
+
+  form.addEventListener('change', () => {
+    updatePreview();
+    const columns = Array.from(form.querySelectorAll('input[name=columns]:checked')).map(input => input.value).join(',');
+    form.action = '/download-csv?columns=' + encodeURIComponent(columns);
+  });
+
+  updatePreview();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Live attendance — SSIT Attendance{% endblock %}
+{% block content %}
+<div id="live-config" data-can-manage="{{ 'true' if can_manage else 'false' }}" hidden></div>
+<div class="page-head">
+  <div>
+    <h1>Live attendance</h1>
+    <p>{{ active_event.name if active_event else 'No active event' }} · newest activity first.</p>
+  </div>
+  <div class="actions">
+    {% if active_event and can_manage %}
+      <form method="post" action="/events/{{ active_event.id }}/status">
+        <input type="hidden" name="status" value="closed">
+        <button class="btn" type="submit" onclick="confirmAction('Close this event? Scanning will stop.', this.form.submit.bind(this.form))">Close event</button>
+      </form>
+    {% endif %}
+    {% if can_manage %}
+      <form method="post" action="/attendance/reset">
+        <button class="btn btn-danger" type="submit" onclick="confirmAction('Delete ALL attendance records for this event? This cannot be undone.', this.form.submit.bind(this.form))">Reset attendance</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if not active_event %}<div class="notice notice-warning"><a href="/events">Select an event</a> to see attendance.</div>{% endif %}
+
+<div class="grid grid-4" style="margin-bottom:24px">
+  <div class="card kpi"><span class="label">Total scans</span><span class="value" id="kpi-total">0</span></div>
+  <div class="card kpi"><span class="label">Inside</span><span class="value" style="color:var(--success)" id="kpi-inside">0</span></div>
+  <div class="card kpi"><span class="label">Checked out</span><span class="value" id="kpi-out">0</span></div>
+  <div class="card kpi"><span class="label">Connection</span><span class="value" style="font-size:1rem" id="ws-status">Connecting…</span></div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>Attendance by year, program and section</h2>
+    <span class="form-note">Last updated <span id="last-updated">—</span></span>
+  </div>
+  <div class="toolbar">
+    <input type="search" id="search" placeholder="Search name or student ID">
+    <select id="section-filter"><option value="">All sections</option>{% for s in ['A','B','C','D','E','F','G','H'] %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select>
+    <select id="status-filter">
+      <option value="">All statuses</option>
+      <option value="inside">Inside</option>
+      <option value="out">Checked out</option>
+    </select>
+  </div>
+  <div id="attendance" class="activity-feed"><p class="empty-state">Loading attendance…</p></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

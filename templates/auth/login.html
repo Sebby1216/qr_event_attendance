@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Sign in — SSIT Attendance{% endblock %}
+{% block standalone %}
+<div class="card login-card">
+  <h1>SSIT Attendance</h1>
+  <p>Sign in to manage check-ins and attendance.</p>
+  {% if error %}<div class="notice notice-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/login">
+    <div class="field">
+      <label for="student_id">Student ID</label>
+      <input id="student_id" name="student_id" value="{{ student_id|default('') }}" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-primary btn-lg" type="submit">Sign in</button>
+  </form>
+</div>
+{% endblock %}

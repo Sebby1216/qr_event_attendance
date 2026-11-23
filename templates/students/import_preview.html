@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% from 'partials/icons.html' import icon %}
+{% block title %}Import preview — SSIT Attendance{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Import preview</h1><p>{{ batch.filename }} · {{ valid_count }} ready, {{ error_count }} with errors.</p></div>
+  <a class="btn" href="/students/import">Cancel</a>
+</div>
+
+<div class="card">
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>Student ID</th><th>Name</th><th>Program</th><th>Year</th><th>Section</th><th>Validation</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>
+          <td>{{ row.student_id|default('—') }}</td>
+          <td>{{ row.last_name|default('') }}, {{ row.first_name|default('') }}</td>
+          <td>{{ row.program|default('—') }}</td>
+          <td>{{ row.year|default('—') }}</td>
+          <td>{{ row.section|default('—') }}</td>
+          <td>
+            {% if row.errors %}
+              <span class="status-pill status-error">Invalid</span>
+              <div class="form-note">{{ row.errors|join(', ') }}</div>
+            {% else %}
+              <span class="status-pill status-success">Ready</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty-state">The CSV contained no rows.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="form-actions" style="margin-top:20px">
+    <form method="post" action="/students/import/confirm">
+      <input type="hidden" name="batch_id" value="{{ batch.id }}">
+      <button class="btn btn-primary" type="submit" {{ 'disabled' if valid_count == 0 }}>{{ icon('check') }} Confirm import of {{ valid_count }} students</button>
+    </form>
+    <a class="btn" href="/students/import">Discard</a>
+  </div>
+</div>
+{% endblock %}
